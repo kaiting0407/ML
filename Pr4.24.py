@@ -8,6 +8,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
+from matplotlib.font_manager import FontProperties
 import seaborn as sns
 from tqdm import tqdm
 import warnings
@@ -21,12 +22,18 @@ warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
 np.random.seed(42)
 
 # 配置繪圖參數 - 設定中文字體 (適用於 Windows 系統)
-plt.rcParams['font.family'] = ['Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS']
-plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS']
+# 強制使用 Microsoft JhengHei 作為所有文字的字體
+plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'Microsoft YaHei', 'SimHei']
+plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
 plt.rcParams['font.size'] = 11
+plt.rcParams['mathtext.fontset'] = 'stix'  # 使用 STIX 字體顯示數學符號
+plt.rcParams['mathtext.default'] = 'regular'  # 使用正常字體作為默認
 rcParams['figure.dpi'] = 100
 sns.set_style("whitegrid")
+
+# 創建中文字體屬性
+font_prop = FontProperties(family='Microsoft JhengHei', size=11)
 
 
 def generate_data(N, d, wf, sigma):
@@ -257,10 +264,10 @@ def plot_part_b(results):
     ax.plot(N_values, e2_means, 's-', label='E[e2]', linewidth=2, markersize=6)
     ax.plot(N_values, Ecv_means, '^-', label='E[Ecv]', linewidth=2, markersize=6)
     
-    ax.set_xlabel('N (數據點數量)', fontsize=12)
-    ax.set_ylabel('平均誤差', fontsize=12)
-    ax.set_title('Part (b)：E[e1], E[e2], 與 E[Ecv] 的關係', fontsize=14, fontweight='bold')
-    ax.legend(fontsize=11)
+    ax.set_xlabel('N (數據點數量)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax.set_ylabel('平均誤差', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax.set_title('Part (b)：E[e1], E[e2], 與 E[Ecv] 的關係', fontsize=14, fontweight='bold', fontproperties='Microsoft JhengHei')
+    ax.legend(fontsize=11, prop={'family': 'Microsoft JhengHei'})
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -281,10 +288,10 @@ def plot_part_c(results):
     ax.plot(N_values, e1_vars, 'o-', label='Var[e1]', linewidth=2, markersize=6, color='blue')
     ax.plot(N_values, Ecv_vars, 's-', label='Var[Ecv]', linewidth=2, markersize=6, color='red')
     
-    ax.set_xlabel('N (數據點數量)', fontsize=12)
-    ax.set_ylabel('變異數', fontsize=12)
-    ax.set_title('Part (c)：e1 與 Ecv 的變異數比較', fontsize=14, fontweight='bold')
-    ax.legend(fontsize=11)
+    ax.set_xlabel('N (數據點數量)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax.set_ylabel('變異數', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax.set_title('Part (c)：e1 與 Ecv 的變異數比較', fontsize=14, fontweight='bold', fontproperties='Microsoft JhengHei')
+    ax.legend(fontsize=11, prop={'family': 'Microsoft JhengHei'})
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -309,19 +316,19 @@ def plot_part_e(results, title_suffix=""):
     # 繪製 N_eff
     ax1.plot(N_values, N_eff, 'o-', linewidth=2, markersize=6, color='green')
     ax1.plot(N_values, N_values, '--', linewidth=1.5, color='red', alpha=0.5, label='N (參考線)')
-    ax1.set_xlabel('N (數據點數量)', fontsize=12)
-    ax1.set_ylabel('N_eff (有效新樣本數)', fontsize=12)
-    ax1.set_title(f'Part (e)：有效新樣本數{title_suffix}', fontsize=14, fontweight='bold')
-    ax1.legend(fontsize=11)
+    ax1.set_xlabel('N (數據點數量)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax1.set_ylabel('N_eff (有效新樣本數)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax1.set_title(f'Part (e)：有效新樣本數{title_suffix}', fontsize=14, fontweight='bold', fontproperties='Microsoft JhengHei')
+    ax1.legend(fontsize=11, prop={'family': 'Microsoft JhengHei'})
     ax1.grid(True, alpha=0.3)
     
     # 繪製 N_eff 百分比
     ax2.plot(N_values, N_eff_percentage, 'o-', linewidth=2, markersize=6, color='purple')
     ax2.axhline(y=100, color='red', linestyle='--', linewidth=1.5, alpha=0.5, label='100% (參考線)')
-    ax2.set_xlabel('N (數據點數量)', fontsize=12)
-    ax2.set_ylabel('N_eff / N (%)', fontsize=12)
-    ax2.set_title(f'Part (e)：N_eff 占 N 的百分比{title_suffix}', fontsize=14, fontweight='bold')
-    ax2.legend(fontsize=11)
+    ax2.set_xlabel('N (數據點數量)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax2.set_ylabel('N_eff / N (%)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax2.set_title(f'Part (e)：N_eff 占 N 的百分比{title_suffix}', fontsize=14, fontweight='bold', fontproperties='Microsoft JhengHei')
+    ax2.legend(fontsize=11, prop={'family': 'Microsoft JhengHei'})
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -348,23 +355,23 @@ def plot_part_f_comparison(results_small, results_large):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
     
     # 繪製 N_eff 比較
-    ax1.plot(N_values, N_eff_small, 'o-', linewidth=2, markersize=6, label='λ = 0.05/N', color='blue')
-    ax1.plot(N_values, N_eff_large, 's-', linewidth=2, markersize=6, label='λ = 2.5/N', color='orange')
+    ax1.plot(N_values, N_eff_small, 'o-', linewidth=2, markersize=6, label=r'$\lambda$ = 0.05/N', color='blue')
+    ax1.plot(N_values, N_eff_large, 's-', linewidth=2, markersize=6, label=r'$\lambda$ = 2.5/N', color='orange')
     ax1.plot(N_values, N_values, '--', linewidth=1.5, color='red', alpha=0.5, label='N (參考線)')
-    ax1.set_xlabel('N (數據點數量)', fontsize=12)
-    ax1.set_ylabel('N_eff (有效新樣本數)', fontsize=12)
-    ax1.set_title('Part (f)：不同 λ 值的 N_eff 比較', fontsize=14, fontweight='bold')
-    ax1.legend(fontsize=11)
+    ax1.set_xlabel('N (數據點數量)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax1.set_ylabel('N_eff (有效新樣本數)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax1.set_title(r'Part (f)：不同 $\lambda$ 值的 N_eff 比較', fontsize=14, fontweight='bold', fontproperties='Microsoft JhengHei')
+    ax1.legend(fontsize=11, prop={'family': 'Microsoft JhengHei'})
     ax1.grid(True, alpha=0.3)
     
     # 繪製百分比比較
-    ax2.plot(N_values, N_eff_pct_small, 'o-', linewidth=2, markersize=6, label='λ = 0.05/N', color='blue')
-    ax2.plot(N_values, N_eff_pct_large, 's-', linewidth=2, markersize=6, label='λ = 2.5/N', color='orange')
+    ax2.plot(N_values, N_eff_pct_small, 'o-', linewidth=2, markersize=6, label=r'$\lambda$ = 0.05/N', color='blue')
+    ax2.plot(N_values, N_eff_pct_large, 's-', linewidth=2, markersize=6, label=r'$\lambda$ = 2.5/N', color='orange')
     ax2.axhline(y=100, color='red', linestyle='--', linewidth=1.5, alpha=0.5, label='100% (參考線)')
-    ax2.set_xlabel('N (數據點數量)', fontsize=12)
-    ax2.set_ylabel('N_eff / N (%)', fontsize=12)
-    ax2.set_title('Part (f)：N_eff 百分比比較', fontsize=14, fontweight='bold')
-    ax2.legend(fontsize=11)
+    ax2.set_xlabel('N (數據點數量)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax2.set_ylabel('N_eff / N (%)', fontsize=12, fontproperties='Microsoft JhengHei')
+    ax2.set_title('Part (f)：N_eff 百分比比較', fontsize=14, fontweight='bold', fontproperties='Microsoft JhengHei')
+    ax2.legend(fontsize=11, prop={'family': 'Microsoft JhengHei'})
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -407,7 +414,7 @@ def main():
     # 參數設定
     d = 3
     sigma = 0.5
-    num_experiments = 100000  # 10^5 次實驗
+    num_experiments = 10000  # 10^4 次實驗
     n_jobs = -1  # 使用所有可用的 CPU 核心
     
     # Part (a) - (e) 使用 λ = 0.05/N
@@ -429,19 +436,19 @@ def main():
     # Part (b)：繪製平均值之間的關係
     print("生成 Part (b) 圖表...")
     fig_b = plot_part_b(results_small)
-    fig_b.savefig('/Users/kai/Desktop/ML/Pr4.24_part_b.png', dpi=300, bbox_inches='tight')
+    fig_b.savefig('c:/Users/mike2/Desktop/ML/Pr4.24_part_b.png', dpi=300, bbox_inches='tight')
     print("已保存：Pr4.24_part_b.png\n")
     
     # Part (c)：分析變異數
     print("生成 Part (c) 圖表...")
     fig_c = plot_part_c(results_small)
-    fig_c.savefig('/Users/kai/Desktop/ML/Pr4.24_part_c.png', dpi=300, bbox_inches='tight')
+    fig_c.savefig('c:/Users/mike2/Desktop/ML/Pr4.24_part_c.png', dpi=300, bbox_inches='tight')
     print("已保存：Pr4.24_part_c.png\n")
     
     # Part (e)：有效新樣本數
     print("生成 Part (e) 圖表...")
-    fig_e, N_eff, N_eff_pct = plot_part_e(results_small, " (λ = 0.05/N)")
-    fig_e.savefig('/Users/kai/Desktop/ML/Pr4.24_part_e.png', dpi=300, bbox_inches='tight')
+    fig_e, N_eff, N_eff_pct = plot_part_e(results_small, r" ($\lambda$ = 0.05/N)")
+    fig_e.savefig('c:/Users/mike2/Desktop/ML/Pr4.24_part_e.png', dpi=300, bbox_inches='tight')
     print("已保存：Pr4.24_part_e.png\n")
     
     # Part (f)：增加正規化 λ = 2.5/N
@@ -462,14 +469,14 @@ def main():
     
     # Part (f)：為大 lambda 繪製 N_eff 圖
     print("生成 Part (f) 單獨圖表...")
-    fig_f_individual, _, _ = plot_part_e(results_large, " (λ = 2.5/N)")
-    fig_f_individual.savefig('/Users/kai/Desktop/ML/Pr4.24_part_f_individual.png', dpi=300, bbox_inches='tight')
+    fig_f_individual, _, _ = plot_part_e(results_large, r" ($\lambda$ = 2.5/N)")
+    fig_f_individual.savefig('c:/Users/mike2/Desktop/ML/Pr4.24_part_f_individual.png', dpi=300, bbox_inches='tight')
     print("已保存：Pr4.24_part_f_individual.png\n")
     
     # Part (f)：比較圖
     print("生成 Part (f) 比較圖表...")
     fig_f = plot_part_f_comparison(results_small, results_large)
-    fig_f.savefig('/Users/kai/Desktop/ML/Pr4.24_part_f_comparison.png', dpi=300, bbox_inches='tight')
+    fig_f.savefig('c:/Users/mike2/Desktop/ML/Pr4.24_part_f_comparison.png', dpi=300, bbox_inches='tight')
     print("已保存：Pr4.24_part_f_comparison.png\n")
     
     # 輸出最終分析
