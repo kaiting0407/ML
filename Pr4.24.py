@@ -11,44 +11,51 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import seaborn as sns
 from tqdm import tqdm
+import warnings
 
-# Set random seed for reproducibility
+# 抑制字體相關的警告
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
+
+# 設定隨機種子以確保可重現性
 np.random.seed(42)
 
-# Configure plotting
-rcParams['font.size'] = 10
+# 配置繪圖參數 - 設定中文字體
+plt.rcParams['font.family'] = ['PingFang HK', 'Songti SC', 'Kaiti SC', 'Heiti TC', 'STHeiti', 'Arial Unicode MS', 'DejaVu Sans']
+plt.rcParams['font.sans-serif'] = ['PingFang HK', 'Songti SC', 'Kaiti SC', 'Heiti TC', 'STHeiti', 'Arial Unicode MS', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
+plt.rcParams['font.size'] = 11
 rcParams['figure.dpi'] = 100
 sns.set_style("whitegrid")
 
 
 def generate_data(N, d, wf, sigma):
     """
-    Generate random data set.
+    生成隨機數據集
     
-    Parameters:
+    參數:
     -----------
     N : int
-        Number of data points
+        數據點數量
     d : int
-        Dimension of input space
+        輸入空間維度
     wf : ndarray
-        Target weight vector (d+1 dimensional, including bias)
+        目標權重向量 (d+1 維，包含偏置項)
     sigma : float
-        Noise standard deviation
+        噪音標準差
     
-    Returns:
+    返回:
     --------
     X : ndarray of shape (N, d+1)
-        Input data with bias term
+        包含偏置項的輸入數據
     y : ndarray of shape (N,)
-        Target values with noise
+        帶噪音的目標值
     """
-    # Generate X from standard Normal distribution
+    # 從標準常態分佈生成 X
     X_raw = np.random.randn(N, d)
-    # Add bias term (x0 = 1)
+    # 添加偏置項 (x0 = 1)
     X = np.column_stack([np.ones(N), X_raw])
     
-    # Generate y with noise
+    # 生成帶噪音的 y
     epsilon = np.random.randn(N)
     y = X @ wf + sigma * epsilon
     
@@ -57,21 +64,21 @@ def generate_data(N, d, wf, sigma):
 
 def ridge_regression(X, y, lambda_reg):
     """
-    Perform ridge regression (linear regression with weight decay).
+    執行嶺迴歸 (帶權重衰減的線性迴歸)
     
-    Parameters:
+    參數:
     -----------
     X : ndarray of shape (N, d+1)
-        Input data
+        輸入數據
     y : ndarray of shape (N,)
-        Target values
+        目標值
     lambda_reg : float
-        Regularization parameter
+        正規化參數
     
-    Returns:
+    返回:
     --------
     w : ndarray of shape (d+1,)
-        Estimated weight vector
+        估計的權重向量
     """
     d = X.shape[1]
     # w_reg = (X^T X + λI)^{-1} X^T y
@@ -81,36 +88,36 @@ def ridge_regression(X, y, lambda_reg):
 
 def leave_one_out_cv(X, y, lambda_reg):
     """
-    Perform leave-one-out cross validation.
+    執行留一法交叉驗證
     
-    Parameters:
+    參數:
     -----------
     X : ndarray of shape (N, d+1)
-        Input data
+        輸入數據
     y : ndarray of shape (N,)
-        Target values
+        目標值
     lambda_reg : float
-        Regularization parameter
+        正規化參數
     
-    Returns:
+    返回:
     --------
     cv_errors : ndarray of shape (N,)
-        Individual cross validation errors e_i
+        個別交叉驗證誤差 e_i
     E_cv : float
-        Average cross validation error
+        平均交叉驗證誤差
     """
     N = X.shape[0]
     cv_errors = np.zeros(N)
     
     for i in range(N):
-        # Create training set by leaving out point i
+        # 留出第 i 個點，創建訓練集
         X_train = np.delete(X, i, axis=0)
         y_train = np.delete(y, i)
         
-        # Train on N-1 points
+        # 在 N-1 個點上訓練
         w = ridge_regression(X_train, y_train, lambda_reg)
         
-        # Compute error on the left-out point
+        # 計算留出點的誤差
         y_pred = X[i] @ w
         cv_errors[i] = (y[i] - y_pred) ** 2
     
@@ -121,64 +128,64 @@ def leave_one_out_cv(X, y, lambda_reg):
 
 def run_experiment_part_a(d=3, sigma=0.5, num_experiments=100000, lambda_ratio=0.05):
     """
-    Part (a): Run experiments for different N values.
+    Part (a): 執行不同 N 值的實驗
     
-    Parameters:
+    參數:
     -----------
     d : int
-        Dimension of input space
+        輸入空間維度
     sigma : float
-        Noise standard deviation
+        噪音標準差
     num_experiments : int
-        Number of experiment repetitions
+        實驗重複次數
     lambda_ratio : float
-        Regularization parameter ratio (λ = lambda_ratio / N)
+        正規化參數比例 (λ = lambda_ratio / N)
     
-    Returns:
+    返回:
     --------
     results : dict
-        Dictionary containing results for each N
+        包含每個 N 的結果字典
     """
     N_values = range(d + 15, d + 116, 10)  # d+15, d+25, ..., d+115
     results = {}
     
     print(f"\n{'='*60}")
-    print(f"Running Part (a): Cross Validation Analysis")
+    print(f"執行 Part (a): 交叉驗證分析")
     print(f"{'='*60}")
-    print(f"Parameters: d={d}, σ={sigma}, λ_ratio={lambda_ratio}")
-    print(f"Experiments: {num_experiments:,}")
+    print(f"參數: d={d}, σ={sigma}, λ比例={lambda_ratio}")
+    print(f"實驗次數: {num_experiments:,}")
     print(f"{'='*60}\n")
     
     for N in N_values:
-        print(f"Processing N = {N}...")
+        print(f"處理 N = {N}...")
         
-        # Storage for statistics
+        # 儲存統計量的變數
         e1_values = []
         e2_values = []
         Ecv_values = []
         
-        # Generate fixed target weight vector for all experiments with this N
-        # Note: We regenerate wf for each N to maintain independence
+        # 為每個 N 生成固定的目標權重向量
+        # 注意: 我們為每個 N 重新生成 wf 以保持獨立性
         
         for exp in tqdm(range(num_experiments), desc=f"N={N}", ncols=80):
-            # Generate target weight vector
+            # 生成目標權重向量
             wf = np.random.randn(d + 1)
             
-            # Generate data
+            # 生成數據
             X, y = generate_data(N, d, wf, sigma)
             
-            # Set regularization parameter
+            # 設定正規化參數
             lambda_reg = lambda_ratio / N
             
-            # Perform LOOCV
+            # 執行留一法交叉驗證
             cv_errors, E_cv = leave_one_out_cv(X, y, lambda_reg)
             
-            # Store statistics
-            e1_values.append(cv_errors[0])  # First CV error
-            e2_values.append(cv_errors[1])  # Second CV error
+            # 儲存統計量
+            e1_values.append(cv_errors[0])  # 第一個CV誤差
+            e2_values.append(cv_errors[1])  # 第二個CV誤差
             Ecv_values.append(E_cv)
         
-        # Compute statistics
+        # 計算統計量
         results[N] = {
             'e1_mean': np.mean(e1_values),
             'e1_var': np.var(e1_values, ddof=1),
@@ -186,7 +193,7 @@ def run_experiment_part_a(d=3, sigma=0.5, num_experiments=100000, lambda_ratio=0
             'e2_var': np.var(e2_values, ddof=1),
             'Ecv_mean': np.mean(Ecv_values),
             'Ecv_var': np.var(Ecv_values, ddof=1),
-            'e1_values': e1_values[:1000],  # Store first 1000 for analysis
+            'e1_values': e1_values[:1000],  # 儲存前1000個用於分析
             'e2_values': e2_values[:1000],
             'Ecv_values': Ecv_values[:1000]
         }
@@ -200,7 +207,7 @@ def run_experiment_part_a(d=3, sigma=0.5, num_experiments=100000, lambda_ratio=0
 
 def plot_part_b(results):
     """
-    Part (b): Plot relationship between e1, e2, and Ecv averages.
+    Part (b): 繪製 e1, e2, 和 Ecv 平均值的關係圖
     """
     N_values = sorted(results.keys())
     
@@ -210,13 +217,13 @@ def plot_part_b(results):
     
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    ax.plot(N_values, e1_means, 'o-', label='E[e₁]', linewidth=2, markersize=6)
-    ax.plot(N_values, e2_means, 's-', label='E[e₂]', linewidth=2, markersize=6)
-    ax.plot(N_values, Ecv_means, '^-', label='E[E_cv]', linewidth=2, markersize=6)
+    ax.plot(N_values, e1_means, 'o-', label='E[e1]', linewidth=2, markersize=6)
+    ax.plot(N_values, e2_means, 's-', label='E[e2]', linewidth=2, markersize=6)
+    ax.plot(N_values, Ecv_means, '^-', label='E[Ecv]', linewidth=2, markersize=6)
     
-    ax.set_xlabel('N (number of data points)', fontsize=12)
-    ax.set_ylabel('Average Error', fontsize=12)
-    ax.set_title('Part (b): Relationship between E[e₁], E[e₂], and E[E_cv]', fontsize=14, fontweight='bold')
+    ax.set_xlabel('N (數據點數量)', fontsize=12)
+    ax.set_ylabel('平均誤差', fontsize=12)
+    ax.set_title('Part (b): E[e1], E[e2], 與 E[Ecv] 的關係', fontsize=14, fontweight='bold')
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
     
@@ -226,7 +233,7 @@ def plot_part_b(results):
 
 def plot_part_c(results):
     """
-    Part (c): Analyze contributors to variance of e1.
+    Part (c): 分析 e1 變異數的貢獻者
     """
     N_values = sorted(results.keys())
     
@@ -235,12 +242,12 @@ def plot_part_c(results):
     
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    ax.plot(N_values, e1_vars, 'o-', label='Var[e₁]', linewidth=2, markersize=6, color='blue')
-    ax.plot(N_values, Ecv_vars, 's-', label='Var[E_cv]', linewidth=2, markersize=6, color='red')
+    ax.plot(N_values, e1_vars, 'o-', label='Var[e1]', linewidth=2, markersize=6, color='blue')
+    ax.plot(N_values, Ecv_vars, 's-', label='Var[Ecv]', linewidth=2, markersize=6, color='red')
     
-    ax.set_xlabel('N (number of data points)', fontsize=12)
-    ax.set_ylabel('Variance', fontsize=12)
-    ax.set_title('Part (c): Variance of e₁ vs E_cv', fontsize=14, fontweight='bold')
+    ax.set_xlabel('N (數據點數量)', fontsize=12)
+    ax.set_ylabel('變異數', fontsize=12)
+    ax.set_title('Part (c): e1 與 Ecv 的變異數比較', fontsize=14, fontweight='bold')
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
     
@@ -250,7 +257,7 @@ def plot_part_c(results):
 
 def plot_part_e(results, title_suffix=""):
     """
-    Part (e): Plot effective number of fresh examples.
+    Part (e): 繪製有效新樣本數
     """
     N_values = sorted(results.keys())
     
@@ -263,21 +270,21 @@ def plot_part_e(results, title_suffix=""):
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
     
-    # Plot N_eff
+    # 繪製 N_eff
     ax1.plot(N_values, N_eff, 'o-', linewidth=2, markersize=6, color='green')
-    ax1.plot(N_values, N_values, '--', linewidth=1.5, color='red', alpha=0.5, label='N (reference)')
-    ax1.set_xlabel('N (number of data points)', fontsize=12)
-    ax1.set_ylabel('N_eff (effective fresh examples)', fontsize=12)
-    ax1.set_title(f'Part (e): Effective Number of Fresh Examples{title_suffix}', fontsize=14, fontweight='bold')
+    ax1.plot(N_values, N_values, '--', linewidth=1.5, color='red', alpha=0.5, label='N (參考線)')
+    ax1.set_xlabel('N (數據點數量)', fontsize=12)
+    ax1.set_ylabel('N_eff (有效新樣本數)', fontsize=12)
+    ax1.set_title(f'Part (e): 有效新樣本數{title_suffix}', fontsize=14, fontweight='bold')
     ax1.legend(fontsize=11)
     ax1.grid(True, alpha=0.3)
     
-    # Plot N_eff as percentage
+    # 繪製 N_eff 百分比
     ax2.plot(N_values, N_eff_percentage, 'o-', linewidth=2, markersize=6, color='purple')
-    ax2.axhline(y=100, color='red', linestyle='--', linewidth=1.5, alpha=0.5, label='100% (reference)')
-    ax2.set_xlabel('N (number of data points)', fontsize=12)
+    ax2.axhline(y=100, color='red', linestyle='--', linewidth=1.5, alpha=0.5, label='100% (參考線)')
+    ax2.set_xlabel('N (數據點數量)', fontsize=12)
     ax2.set_ylabel('N_eff / N (%)', fontsize=12)
-    ax2.set_title(f'Part (e): N_eff as Percentage of N{title_suffix}', fontsize=14, fontweight='bold')
+    ax2.set_title(f'Part (e): N_eff 占 N 的百分比{title_suffix}', fontsize=14, fontweight='bold')
     ax2.legend(fontsize=11)
     ax2.grid(True, alpha=0.3)
     
@@ -287,11 +294,11 @@ def plot_part_e(results, title_suffix=""):
 
 def plot_part_f_comparison(results_small, results_large):
     """
-    Part (f): Compare N_eff for different regularization parameters.
+    Part (f): 比較不同正規化參數的 N_eff
     """
     N_values = sorted(results_small.keys())
     
-    # Compute N_eff for both lambda values
+    # 計算兩種 lambda 值的 N_eff
     e1_vars_small = [results_small[N]['e1_var'] for N in N_values]
     Ecv_vars_small = [results_small[N]['Ecv_var'] for N in N_values]
     N_eff_small = [e1_vars_small[i] / Ecv_vars_small[i] for i in range(len(N_values))]
@@ -304,23 +311,23 @@ def plot_part_f_comparison(results_small, results_large):
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
     
-    # Plot N_eff comparison
+    # 繪製 N_eff 比較
     ax1.plot(N_values, N_eff_small, 'o-', linewidth=2, markersize=6, label='λ = 0.05/N', color='blue')
     ax1.plot(N_values, N_eff_large, 's-', linewidth=2, markersize=6, label='λ = 2.5/N', color='orange')
-    ax1.plot(N_values, N_values, '--', linewidth=1.5, color='red', alpha=0.5, label='N (reference)')
-    ax1.set_xlabel('N (number of data points)', fontsize=12)
-    ax1.set_ylabel('N_eff (effective fresh examples)', fontsize=12)
-    ax1.set_title('Part (f): N_eff Comparison for Different λ', fontsize=14, fontweight='bold')
+    ax1.plot(N_values, N_values, '--', linewidth=1.5, color='red', alpha=0.5, label='N (參考線)')
+    ax1.set_xlabel('N (數據點數量)', fontsize=12)
+    ax1.set_ylabel('N_eff (有效新樣本數)', fontsize=12)
+    ax1.set_title('Part (f): 不同 λ 值的 N_eff 比較', fontsize=14, fontweight='bold')
     ax1.legend(fontsize=11)
     ax1.grid(True, alpha=0.3)
     
-    # Plot percentage comparison
+    # 繪製百分比比較
     ax2.plot(N_values, N_eff_pct_small, 'o-', linewidth=2, markersize=6, label='λ = 0.05/N', color='blue')
     ax2.plot(N_values, N_eff_pct_large, 's-', linewidth=2, markersize=6, label='λ = 2.5/N', color='orange')
-    ax2.axhline(y=100, color='red', linestyle='--', linewidth=1.5, alpha=0.5, label='100% (reference)')
-    ax2.set_xlabel('N (number of data points)', fontsize=12)
+    ax2.axhline(y=100, color='red', linestyle='--', linewidth=1.5, alpha=0.5, label='100% (參考線)')
+    ax2.set_xlabel('N (數據點數量)', fontsize=12)
     ax2.set_ylabel('N_eff / N (%)', fontsize=12)
-    ax2.set_title('Part (f): N_eff Percentage Comparison', fontsize=14, fontweight='bold')
+    ax2.set_title('Part (f): N_eff 百分比比較', fontsize=14, fontweight='bold')
     ax2.legend(fontsize=11)
     ax2.grid(True, alpha=0.3)
     
@@ -330,12 +337,12 @@ def plot_part_f_comparison(results_small, results_large):
 
 def print_summary_table(results, lambda_ratio):
     """
-    Print a summary table of results.
+    輸出結果摘要表格
     """
     print(f"\n{'='*90}")
-    print(f"Summary Table (λ = {lambda_ratio}/N)")
+    print(f"摘要表格 (λ = {lambda_ratio}/N)")
     print(f"{'='*90}")
-    print(f"{'N':>5} | {'E[e₁]':>10} | {'E[e₂]':>10} | {'E[E_cv]':>10} | {'Var[e₁]':>10} | {'Var[E_cv]':>10} | {'N_eff/N':>8}")
+    print(f"{'N':>5} | {'E[e1]':>10} | {'E[e2]':>10} | {'E[Ecv]':>10} | {'Var[e1]':>10} | {'Var[Ecv]':>10} | {'N_eff/N':>8}")
     print(f"{'-'*90}")
     
     N_values = sorted(results.keys())
@@ -355,20 +362,20 @@ def print_summary_table(results, lambda_ratio):
 
 def main():
     """
-    Main function to run all parts of Problem 4.24.
+    主函數：執行 Problem 4.24 的所有部分
     """
     print("\n" + "="*60)
-    print("Problem 4.24: Cross Validation Analysis")
+    print("Problem 4.24: 交叉驗證分析")
     print("="*60)
     
-    # Parameters
+    # 參數設定
     d = 3
     sigma = 0.5
-    num_experiments = 100000  # 10^5 experiments
+    num_experiments = 100000  # 10^5 次實驗
     
-    # Part (a) - (e) with λ = 0.05/N
+    # Part (a) - (e) 使用 λ = 0.05/N
     print("\n" + "="*60)
-    print("Parts (a)-(e): Running with λ = 0.05/N")
+    print("Parts (a)-(e): 使用 λ = 0.05/N 執行實驗")
     print("="*60)
     
     results_small = run_experiment_part_a(
@@ -378,30 +385,30 @@ def main():
         lambda_ratio=0.05
     )
     
-    # Print summary table
+    # 輸出摘要表格
     print_summary_table(results_small, 0.05)
     
-    # Part (b): Plot relationship between averages
-    print("Generating Part (b) plot...")
+    # Part (b): 繪製平均值之間的關係
+    print("生成 Part (b) 圖表...")
     fig_b = plot_part_b(results_small)
     fig_b.savefig('/Users/kai/Desktop/ML/Pr4.24_part_b.png', dpi=300, bbox_inches='tight')
-    print("Saved: Pr4.24_part_b.png\n")
+    print("已保存: Pr4.24_part_b.png\n")
     
-    # Part (c): Analyze variance
-    print("Generating Part (c) plot...")
+    # Part (c): 分析變異數
+    print("生成 Part (c) 圖表...")
     fig_c = plot_part_c(results_small)
     fig_c.savefig('/Users/kai/Desktop/ML/Pr4.24_part_c.png', dpi=300, bbox_inches='tight')
-    print("Saved: Pr4.24_part_c.png\n")
+    print("已保存: Pr4.24_part_c.png\n")
     
-    # Part (e): Effective number of fresh examples
-    print("Generating Part (e) plot...")
+    # Part (e): 有效新樣本數
+    print("生成 Part (e) 圖表...")
     fig_e, N_eff, N_eff_pct = plot_part_e(results_small, " (λ = 0.05/N)")
     fig_e.savefig('/Users/kai/Desktop/ML/Pr4.24_part_e.png', dpi=300, bbox_inches='tight')
-    print("Saved: Pr4.24_part_e.png\n")
+    print("已保存: Pr4.24_part_e.png\n")
     
-    # Part (f): Increased regularization λ = 2.5/N
+    # Part (f): 增加正規化 λ = 2.5/N
     print("\n" + "="*60)
-    print("Part (f): Running with λ = 2.5/N")
+    print("Part (f): 使用 λ = 2.5/N 執行實驗")
     print("="*60)
     
     results_large = run_experiment_part_a(
@@ -411,84 +418,84 @@ def main():
         lambda_ratio=2.5
     )
     
-    # Print summary table for large lambda
+    # 為大 lambda 輸出摘要表格
     print_summary_table(results_large, 2.5)
     
-    # Part (f): Plot N_eff for large lambda
-    print("Generating Part (f) individual plot...")
+    # Part (f): 為大 lambda 繪製 N_eff 圖
+    print("生成 Part (f) 單獨圖表...")
     fig_f_individual, _, _ = plot_part_e(results_large, " (λ = 2.5/N)")
     fig_f_individual.savefig('/Users/kai/Desktop/ML/Pr4.24_part_f_individual.png', dpi=300, bbox_inches='tight')
-    print("Saved: Pr4.24_part_f_individual.png\n")
+    print("已保存: Pr4.24_part_f_individual.png\n")
     
-    # Part (f): Comparison plot
-    print("Generating Part (f) comparison plot...")
+    # Part (f): 比較圖
+    print("生成 Part (f) 比較圖表...")
     fig_f = plot_part_f_comparison(results_small, results_large)
     fig_f.savefig('/Users/kai/Desktop/ML/Pr4.24_part_f_comparison.png', dpi=300, bbox_inches='tight')
-    print("Saved: Pr4.24_part_f_comparison.png\n")
+    print("已保存: Pr4.24_part_f_comparison.png\n")
     
-    # Print final analysis
+    # 輸出最終分析
     print("\n" + "="*60)
-    print("ANALYSIS AND CONCLUSIONS")
+    print("分析與結論")
     print("="*60)
     
-    print("\nPart (b) - Relationship between E[e₁], E[e₂], and E[E_cv]:")
+    print("\nPart (b) - E[e1], E[e2], 與 E[Ecv] 的關係:")
     print("-" * 60)
-    print("THEORETICAL EXPECTATION:")
-    print("  • E[e₁] = E[e₂] = E[E_cv] (all CV errors are identically distributed)")
-    print("  • Each e_i estimates the out-of-sample error on a fresh point")
-    print("\nEXPERIMENTAL VERIFICATION:")
+    print("理論預期:")
+    print("  • E[e1] = E[e2] = E[Ecv] (所有CV誤差都是同分佈的)")
+    print("  • 每個 e_i 都估計一個新點的樣本外誤差")
+    print("\n實驗驗證:")
     N_values = sorted(results_small.keys())
     for N in [N_values[0], N_values[-1]]:
         print(f"  N = {N}:")
-        print(f"    E[e₁]  = {results_small[N]['e1_mean']:.6f}")
-        print(f"    E[e₂]  = {results_small[N]['e2_mean']:.6f}")
-        print(f"    E[E_cv] = {results_small[N]['Ecv_mean']:.6f}")
-        print(f"    Difference: {abs(results_small[N]['e1_mean'] - results_small[N]['Ecv_mean']):.8f}")
-    print("\n✓ The averages are nearly identical, confirming the theory.")
+        print(f"    E[e1]  = {results_small[N]['e1_mean']:.6f}")
+        print(f"    E[e2]  = {results_small[N]['e2_mean']:.6f}")
+        print(f"    E[Ecv] = {results_small[N]['Ecv_mean']:.6f}")
+        print(f"    差異: {abs(results_small[N]['e1_mean'] - results_small[N]['Ecv_mean']):.8f}")
+    print("\n✓ 平均值幾乎相同，證實了理論。")
     
-    print("\nPart (c) - Contributors to Var[e₁]:")
+    print("\nPart (c) - Var[e1] 的貢獻者:")
     print("-" * 60)
-    print("VARIANCE CONTRIBUTORS:")
-    print("  1. Randomness in the data set (X, y)")
-    print("  2. Randomness in which point is left out")
-    print("  3. Noise in the target function (ε)")
-    print("  4. Variation in the hypothesis space due to regularization")
-    print("\nOBSERVATION:")
-    print(f"  • Var[e₁] decreases as N increases (more stable estimates)")
-    print(f"  • At N={N_values[0]}: Var[e₁] = {results_small[N_values[0]]['e1_var']:.6f}")
-    print(f"  • At N={N_values[-1]}: Var[e₁] = {results_small[N_values[-1]]['e1_var']:.6f}")
+    print("變異數貢獻者:")
+    print("  1. 數據集的隨機性 (X, y)")
+    print("  2. 留出點的隨機性")
+    print("  3. 目標函數的噪音 (ε)")
+    print("  4. 正規化造成的假設空間變化")
+    print("\n觀察:")
+    print(f"  • Var[e1] 隨 N 增加而減少 (估計更穩定)")
+    print(f"  • 在 N={N_values[0]}: Var[e1] = {results_small[N_values[0]]['e1_var']:.6f}")
+    print(f"  • 在 N={N_values[-1]}: Var[e1] = {results_small[N_values[-1]]['e1_var']:.6f}")
     
-    print("\nPart (d) - Relationship between Var[e_i] and Var[E_cv] if independent:")
+    print("\nPart (d) - 如果獨立，Var[e_i] 與 Var[Ecv] 的關係:")
     print("-" * 60)
-    print("THEORETICAL (IF INDEPENDENT):")
-    print("  • E_cv = (1/N) Σ e_i")
-    print("  • If e_i are independent: Var[E_cv] = Var[e_i] / N")
-    print("  • Therefore: N = Var[e_i] / Var[E_cv]")
-    print("\nHOWEVER, e_i are NOT truly independent because:")
-    print("  • They share N-2 common training points")
-    print("  • This creates correlation between CV errors")
+    print("理論 (如果獨立):")
+    print("  • Ecv = (1/N) Σ e_i")
+    print("  • 如果 e_i 獨立: Var[Ecv] = Var[e_i] / N")
+    print("  • 因此: N = Var[e_i] / Var[Ecv]")
+    print("\n然而，e_i 並非真正獨立，因為:")
+    print("  • 它們共享 N-2 個共同的訓練點")
+    print("  • 這創造了 CV 誤差之間的相關性")
     
-    print("\nPart (e) - Effective number of fresh examples (N_eff):")
+    print("\nPart (e) - 有效新樣本數 (N_eff):")
     print("-" * 60)
-    print("DEFINITION:")
-    print("  • N_eff = Var[e_i] / Var[E_cv]")
-    print("  • Measures how many 'effectively independent' examples contribute to E_cv")
-    print("\nRESULTS (λ = 0.05/N):")
+    print("定義:")
+    print("  • N_eff = Var[e_i] / Var[Ecv]")
+    print("  • 衡量有多少'有效獨立'的樣本對 Ecv 有貢獻")
+    print("\n結果 (λ = 0.05/N):")
     for i, N in enumerate([N_values[0], N_values[len(N_values)//2], N_values[-1]]):
         var_ratio = results_small[N]['e1_var'] / results_small[N]['Ecv_var']
         percentage = var_ratio / N * 100
         print(f"  N = {N}: N_eff = {var_ratio:.2f}, N_eff/N = {percentage:.2f}%")
-    print("\n✓ N_eff is very close to N, indicating CV errors are nearly independent!")
-    print("  This is because each CV error uses a different validation point.")
+    print("\n✓ N_eff 非常接近 N，顯示 CV 誤差幾乎獨立！")
+    print("  這是因為每個 CV 誤差使用不同的驗證點。")
     
-    print("\nPart (f) - Effect of increased regularization on N_eff:")
+    print("\nPart (f) - 增加正規化對 N_eff 的影響:")
     print("-" * 60)
-    print("CONJECTURE:")
-    print("  • Increasing λ → more regularization → smoother hypotheses")
-    print("  • Smoother hypotheses → more similar models when leaving out different points")
-    print("  • More similar models → higher correlation between e_i")
-    print("  • Higher correlation → LOWER N_eff")
-    print("\nVERIFICATION (Comparing λ = 0.05/N vs λ = 2.5/N):")
+    print("猜想:")
+    print("  • 增加 λ → 更多正規化 → 更平滑的假設")
+    print("  • 更平滑的假設 → 留出不同點時模型更相似")
+    print("  • 更相似的模型 → e_i 之間相關性更高")
+    print("  • 更高的相關性 → 更低的 N_eff")
+    print("\n驗證 (比較 λ = 0.05/N vs λ = 2.5/N):")
     for N in [N_values[0], N_values[-1]]:
         var_ratio_small = results_small[N]['e1_var'] / results_small[N]['Ecv_var']
         pct_small = var_ratio_small / N * 100
@@ -497,11 +504,11 @@ def main():
         print(f"\n  N = {N}:")
         print(f"    λ = 0.05/N: N_eff/N = {pct_small:.2f}%")
         print(f"    λ = 2.5/N:  N_eff/N = {pct_large:.2f}%")
-        print(f"    Change: {pct_large - pct_small:+.2f} percentage points")
-    print("\n✓ Conjecture CONFIRMED: Higher regularization → Lower N_eff")
+        print(f"    變化: {pct_large - pct_small:+.2f} 百分點")
+    print("\n✓ 猜想部分證實: 更高的正規化在某些情況下降低 N_eff")
     
     print("\n" + "="*60)
-    print("All plots saved successfully!")
+    print("所有圖表已成功保存！")
     print("="*60 + "\n")
     
     plt.show()
