@@ -1,9 +1,8 @@
 """
-Problem 4.24: Cross Validation Analysis with Weight Decay Regularization
+問題 4.24：帶權重衰減正規化的交叉驗證分析
 
-This script implements leave-one-out cross validation (LOOCV) for linear regression
-with weight decay regularization, analyzing the relationship between individual CV
-errors and the average CV error.
+本程式實作線性迴歸的留一法交叉驗證 (LOOCV)，並分析個別交叉驗證誤差
+與平均交叉驗證誤差之間的關係。
 """
 
 import numpy as np
@@ -12,6 +11,8 @@ from matplotlib import rcParams
 import seaborn as sns
 from tqdm import tqdm
 import warnings
+from joblib import Parallel, delayed
+import multiprocessing
 
 # 抑制字體相關的警告
 warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
@@ -19,9 +20,9 @@ warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
 # 設定隨機種子以確保可重現性
 np.random.seed(42)
 
-# 配置繪圖參數 - 設定中文字體
-plt.rcParams['font.family'] = ['PingFang HK', 'Songti SC', 'Kaiti SC', 'Heiti TC', 'STHeiti', 'Arial Unicode MS', 'DejaVu Sans']
-plt.rcParams['font.sans-serif'] = ['PingFang HK', 'Songti SC', 'Kaiti SC', 'Heiti TC', 'STHeiti', 'Arial Unicode MS', 'DejaVu Sans']
+# 配置繪圖參數 - 設定中文字體 (適用於 Windows 系統)
+plt.rcParams['font.family'] = ['Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS']
+plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS']
 plt.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
 plt.rcParams['font.size'] = 11
 rcParams['figure.dpi'] = 100
@@ -32,7 +33,7 @@ def generate_data(N, d, wf, sigma):
     """
     生成隨機數據集
     
-    參數:
+    參數：
     -----------
     N : int
         數據點數量
@@ -43,7 +44,7 @@ def generate_data(N, d, wf, sigma):
     sigma : float
         噪音標準差
     
-    返回:
+    返回：
     --------
     X : ndarray of shape (N, d+1)
         包含偏置項的輸入數據
@@ -64,9 +65,9 @@ def generate_data(N, d, wf, sigma):
 
 def ridge_regression(X, y, lambda_reg):
     """
-    執行嶺迴歸 (帶權重衰減的線性迴歸)
+    執行嶺迴歸（帶權重衰減的線性迴歸）
     
-    參數:
+    參數：
     -----------
     X : ndarray of shape (N, d+1)
         輸入數據
@@ -75,7 +76,7 @@ def ridge_regression(X, y, lambda_reg):
     lambda_reg : float
         正規化參數
     
-    返回:
+    返回：
     --------
     w : ndarray of shape (d+1,)
         估計的權重向量
@@ -90,7 +91,7 @@ def leave_one_out_cv(X, y, lambda_reg):
     """
     執行留一法交叉驗證
     
-    參數:
+    參數：
     -----------
     X : ndarray of shape (N, d+1)
         輸入數據
@@ -99,7 +100,7 @@ def leave_one_out_cv(X, y, lambda_reg):
     lambda_reg : float
         正規化參數
     
-    返回:
+    返回：
     --------
     cv_errors : ndarray of shape (N,)
         個別交叉驗證誤差 e_i
@@ -126,11 +127,48 @@ def leave_one_out_cv(X, y, lambda_reg):
     return cv_errors, E_cv
 
 
-def run_experiment_part_a(d=3, sigma=0.5, num_experiments=100000, lambda_ratio=0.05):
+def single_experiment(d, N, sigma, lambda_reg, seed=None):
     """
-    Part (a): 執行不同 N 值的實驗
+    執行單次實驗（用於平行化）
     
-    參數:
+    參數：
+    -----------
+    d : int
+        輸入空間維度
+    N : int
+        數據點數量
+    sigma : float
+        噪音標準差
+    lambda_reg : float
+        正規化參數
+    seed : int, optional
+        隨機種子
+    
+    返回：
+    --------
+    tuple : (e1, e2, E_cv)
+        第一個CV誤差、第二個CV誤差、平均CV誤差
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    # 生成目標權重向量
+    wf = np.random.randn(d + 1)
+    
+    # 生成數據
+    X, y = generate_data(N, d, wf, sigma)
+    
+    # 執行留一法交叉驗證
+    cv_errors, E_cv = leave_one_out_cv(X, y, lambda_reg)
+    
+    return cv_errors[0], cv_errors[1], E_cv
+
+
+def run_experiment_part_a(d=3, sigma=0.5, num_experiments=100000, lambda_ratio=0.05, n_jobs=-1):
+    """
+    Part (a)：執行不同 N 值的實驗
+    
+    參數：
     -----------
     d : int
         輸入空間維度
@@ -140,8 +178,10 @@ def run_experiment_part_a(d=3, sigma=0.5, num_experiments=100000, lambda_ratio=0
         實驗重複次數
     lambda_ratio : float
         正規化參數比例 (λ = lambda_ratio / N)
+    n_jobs : int
+        平行工作數量（-1 表示使用所有 CPU 核心）
     
-    返回:
+    返回：
     --------
     results : dict
         包含每個 N 的結果字典
@@ -149,41 +189,37 @@ def run_experiment_part_a(d=3, sigma=0.5, num_experiments=100000, lambda_ratio=0
     N_values = range(d + 15, d + 116, 10)  # d+15, d+25, ..., d+115
     results = {}
     
+    # 獲取 CPU 核心數
+    n_cores = multiprocessing.cpu_count() if n_jobs == -1 else n_jobs
+    
     print(f"\n{'='*60}")
-    print(f"執行 Part (a): 交叉驗證分析")
+    print(f"執行 Part (a)：交叉驗證分析（多核心加速）")
     print(f"{'='*60}")
-    print(f"參數: d={d}, σ={sigma}, λ比例={lambda_ratio}")
-    print(f"實驗次數: {num_experiments:,}")
+    print(f"參數：d={d}, σ={sigma}, λ比例={lambda_ratio}")
+    print(f"實驗次數：{num_experiments:,}")
+    print(f"使用 CPU 核心數：{n_cores}")
     print(f"{'='*60}\n")
     
     for N in N_values:
         print(f"處理 N = {N}...")
         
-        # 儲存統計量的變數
-        e1_values = []
-        e2_values = []
-        Ecv_values = []
+        # 設定正規化參數
+        lambda_reg = lambda_ratio / N
         
-        # 為每個 N 生成固定的目標權重向量
-        # 注意: 我們為每個 N 重新生成 wf 以保持獨立性
+        # 為每個實驗生成不同的隨機種子
+        seeds = [42 + exp for exp in range(num_experiments)]
         
-        for exp in tqdm(range(num_experiments), desc=f"N={N}", ncols=80):
-            # 生成目標權重向量
-            wf = np.random.randn(d + 1)
-            
-            # 生成數據
-            X, y = generate_data(N, d, wf, sigma)
-            
-            # 設定正規化參數
-            lambda_reg = lambda_ratio / N
-            
-            # 執行留一法交叉驗證
-            cv_errors, E_cv = leave_one_out_cv(X, y, lambda_reg)
-            
-            # 儲存統計量
-            e1_values.append(cv_errors[0])  # 第一個CV誤差
-            e2_values.append(cv_errors[1])  # 第二個CV誤差
-            Ecv_values.append(E_cv)
+        # 使用 joblib 進行平行計算
+        print(f"  使用 {n_cores} 個核心進行平行計算...")
+        results_parallel = Parallel(n_jobs=n_jobs, verbose=0)(
+            delayed(single_experiment)(d, N, sigma, lambda_reg, seed)
+            for seed in tqdm(seeds, desc=f"N={N}", ncols=80)
+        )
+        
+        # 解析結果
+        e1_values = [r[0] for r in results_parallel]
+        e2_values = [r[1] for r in results_parallel]
+        Ecv_values = [r[2] for r in results_parallel]
         
         # 計算統計量
         results[N] = {
@@ -207,7 +243,7 @@ def run_experiment_part_a(d=3, sigma=0.5, num_experiments=100000, lambda_ratio=0
 
 def plot_part_b(results):
     """
-    Part (b): 繪製 e1, e2, 和 Ecv 平均值的關係圖
+    Part (b)：繪製 e1, e2, 和 Ecv 平均值的關係圖
     """
     N_values = sorted(results.keys())
     
@@ -223,7 +259,7 @@ def plot_part_b(results):
     
     ax.set_xlabel('N (數據點數量)', fontsize=12)
     ax.set_ylabel('平均誤差', fontsize=12)
-    ax.set_title('Part (b): E[e1], E[e2], 與 E[Ecv] 的關係', fontsize=14, fontweight='bold')
+    ax.set_title('Part (b)：E[e1], E[e2], 與 E[Ecv] 的關係', fontsize=14, fontweight='bold')
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
     
@@ -233,7 +269,7 @@ def plot_part_b(results):
 
 def plot_part_c(results):
     """
-    Part (c): 分析 e1 變異數的貢獻者
+    Part (c)：分析 e1 變異數的貢獻者
     """
     N_values = sorted(results.keys())
     
@@ -247,7 +283,7 @@ def plot_part_c(results):
     
     ax.set_xlabel('N (數據點數量)', fontsize=12)
     ax.set_ylabel('變異數', fontsize=12)
-    ax.set_title('Part (c): e1 與 Ecv 的變異數比較', fontsize=14, fontweight='bold')
+    ax.set_title('Part (c)：e1 與 Ecv 的變異數比較', fontsize=14, fontweight='bold')
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
     
@@ -257,7 +293,7 @@ def plot_part_c(results):
 
 def plot_part_e(results, title_suffix=""):
     """
-    Part (e): 繪製有效新樣本數
+    Part (e)：繪製有效新樣本數
     """
     N_values = sorted(results.keys())
     
@@ -275,7 +311,7 @@ def plot_part_e(results, title_suffix=""):
     ax1.plot(N_values, N_values, '--', linewidth=1.5, color='red', alpha=0.5, label='N (參考線)')
     ax1.set_xlabel('N (數據點數量)', fontsize=12)
     ax1.set_ylabel('N_eff (有效新樣本數)', fontsize=12)
-    ax1.set_title(f'Part (e): 有效新樣本數{title_suffix}', fontsize=14, fontweight='bold')
+    ax1.set_title(f'Part (e)：有效新樣本數{title_suffix}', fontsize=14, fontweight='bold')
     ax1.legend(fontsize=11)
     ax1.grid(True, alpha=0.3)
     
@@ -284,7 +320,7 @@ def plot_part_e(results, title_suffix=""):
     ax2.axhline(y=100, color='red', linestyle='--', linewidth=1.5, alpha=0.5, label='100% (參考線)')
     ax2.set_xlabel('N (數據點數量)', fontsize=12)
     ax2.set_ylabel('N_eff / N (%)', fontsize=12)
-    ax2.set_title(f'Part (e): N_eff 占 N 的百分比{title_suffix}', fontsize=14, fontweight='bold')
+    ax2.set_title(f'Part (e)：N_eff 占 N 的百分比{title_suffix}', fontsize=14, fontweight='bold')
     ax2.legend(fontsize=11)
     ax2.grid(True, alpha=0.3)
     
@@ -294,7 +330,7 @@ def plot_part_e(results, title_suffix=""):
 
 def plot_part_f_comparison(results_small, results_large):
     """
-    Part (f): 比較不同正規化參數的 N_eff
+    Part (f)：比較不同正規化參數的 N_eff
     """
     N_values = sorted(results_small.keys())
     
@@ -317,7 +353,7 @@ def plot_part_f_comparison(results_small, results_large):
     ax1.plot(N_values, N_values, '--', linewidth=1.5, color='red', alpha=0.5, label='N (參考線)')
     ax1.set_xlabel('N (數據點數量)', fontsize=12)
     ax1.set_ylabel('N_eff (有效新樣本數)', fontsize=12)
-    ax1.set_title('Part (f): 不同 λ 值的 N_eff 比較', fontsize=14, fontweight='bold')
+    ax1.set_title('Part (f)：不同 λ 值的 N_eff 比較', fontsize=14, fontweight='bold')
     ax1.legend(fontsize=11)
     ax1.grid(True, alpha=0.3)
     
@@ -327,7 +363,7 @@ def plot_part_f_comparison(results_small, results_large):
     ax2.axhline(y=100, color='red', linestyle='--', linewidth=1.5, alpha=0.5, label='100% (參考線)')
     ax2.set_xlabel('N (數據點數量)', fontsize=12)
     ax2.set_ylabel('N_eff / N (%)', fontsize=12)
-    ax2.set_title('Part (f): N_eff 百分比比較', fontsize=14, fontweight='bold')
+    ax2.set_title('Part (f)：N_eff 百分比比較', fontsize=14, fontweight='bold')
     ax2.legend(fontsize=11)
     ax2.grid(True, alpha=0.3)
     
@@ -362,150 +398,153 @@ def print_summary_table(results, lambda_ratio):
 
 def main():
     """
-    主函數：執行 Problem 4.24 的所有部分
+    主函數：執行問題 4.24 的所有部分
     """
     print("\n" + "="*60)
-    print("Problem 4.24: 交叉驗證分析")
+    print("問題 4.24：交叉驗證分析（多核心加速版本）")
     print("="*60)
     
     # 參數設定
     d = 3
     sigma = 0.5
     num_experiments = 100000  # 10^5 次實驗
+    n_jobs = -1  # 使用所有可用的 CPU 核心
     
     # Part (a) - (e) 使用 λ = 0.05/N
     print("\n" + "="*60)
-    print("Parts (a)-(e): 使用 λ = 0.05/N 執行實驗")
+    print("Parts (a)-(e)：使用 λ = 0.05/N 執行實驗")
     print("="*60)
     
     results_small = run_experiment_part_a(
         d=d, 
         sigma=sigma, 
         num_experiments=num_experiments,
-        lambda_ratio=0.05
+        lambda_ratio=0.05,
+        n_jobs=n_jobs
     )
     
     # 輸出摘要表格
     print_summary_table(results_small, 0.05)
     
-    # Part (b): 繪製平均值之間的關係
+    # Part (b)：繪製平均值之間的關係
     print("生成 Part (b) 圖表...")
     fig_b = plot_part_b(results_small)
     fig_b.savefig('/Users/kai/Desktop/ML/Pr4.24_part_b.png', dpi=300, bbox_inches='tight')
-    print("已保存: Pr4.24_part_b.png\n")
+    print("已保存：Pr4.24_part_b.png\n")
     
-    # Part (c): 分析變異數
+    # Part (c)：分析變異數
     print("生成 Part (c) 圖表...")
     fig_c = plot_part_c(results_small)
     fig_c.savefig('/Users/kai/Desktop/ML/Pr4.24_part_c.png', dpi=300, bbox_inches='tight')
-    print("已保存: Pr4.24_part_c.png\n")
+    print("已保存：Pr4.24_part_c.png\n")
     
-    # Part (e): 有效新樣本數
+    # Part (e)：有效新樣本數
     print("生成 Part (e) 圖表...")
     fig_e, N_eff, N_eff_pct = plot_part_e(results_small, " (λ = 0.05/N)")
     fig_e.savefig('/Users/kai/Desktop/ML/Pr4.24_part_e.png', dpi=300, bbox_inches='tight')
-    print("已保存: Pr4.24_part_e.png\n")
+    print("已保存：Pr4.24_part_e.png\n")
     
-    # Part (f): 增加正規化 λ = 2.5/N
+    # Part (f)：增加正規化 λ = 2.5/N
     print("\n" + "="*60)
-    print("Part (f): 使用 λ = 2.5/N 執行實驗")
+    print("Part (f)：使用 λ = 2.5/N 執行實驗")
     print("="*60)
     
     results_large = run_experiment_part_a(
         d=d, 
         sigma=sigma, 
         num_experiments=num_experiments,
-        lambda_ratio=2.5
+        lambda_ratio=2.5,
+        n_jobs=n_jobs
     )
     
     # 為大 lambda 輸出摘要表格
     print_summary_table(results_large, 2.5)
     
-    # Part (f): 為大 lambda 繪製 N_eff 圖
+    # Part (f)：為大 lambda 繪製 N_eff 圖
     print("生成 Part (f) 單獨圖表...")
     fig_f_individual, _, _ = plot_part_e(results_large, " (λ = 2.5/N)")
     fig_f_individual.savefig('/Users/kai/Desktop/ML/Pr4.24_part_f_individual.png', dpi=300, bbox_inches='tight')
-    print("已保存: Pr4.24_part_f_individual.png\n")
+    print("已保存：Pr4.24_part_f_individual.png\n")
     
-    # Part (f): 比較圖
+    # Part (f)：比較圖
     print("生成 Part (f) 比較圖表...")
     fig_f = plot_part_f_comparison(results_small, results_large)
     fig_f.savefig('/Users/kai/Desktop/ML/Pr4.24_part_f_comparison.png', dpi=300, bbox_inches='tight')
-    print("已保存: Pr4.24_part_f_comparison.png\n")
+    print("已保存：Pr4.24_part_f_comparison.png\n")
     
     # 輸出最終分析
     print("\n" + "="*60)
     print("分析與結論")
     print("="*60)
     
-    print("\nPart (b) - E[e1], E[e2], 與 E[Ecv] 的關係:")
+    print("\nPart (b) - E[e1], E[e2], 與 E[Ecv] 的關係：")
     print("-" * 60)
-    print("理論預期:")
-    print("  • E[e1] = E[e2] = E[Ecv] (所有CV誤差都是同分佈的)")
+    print("理論預期：")
+    print("  • E[e1] = E[e2] = E[Ecv] （所有CV誤差都是同分佈的）")
     print("  • 每個 e_i 都估計一個新點的樣本外誤差")
-    print("\n實驗驗證:")
+    print("\n實驗驗證：")
     N_values = sorted(results_small.keys())
     for N in [N_values[0], N_values[-1]]:
         print(f"  N = {N}:")
         print(f"    E[e1]  = {results_small[N]['e1_mean']:.6f}")
         print(f"    E[e2]  = {results_small[N]['e2_mean']:.6f}")
         print(f"    E[Ecv] = {results_small[N]['Ecv_mean']:.6f}")
-        print(f"    差異: {abs(results_small[N]['e1_mean'] - results_small[N]['Ecv_mean']):.8f}")
+        print(f"    差異：{abs(results_small[N]['e1_mean'] - results_small[N]['Ecv_mean']):.8f}")
     print("\n✓ 平均值幾乎相同，證實了理論。")
     
-    print("\nPart (c) - Var[e1] 的貢獻者:")
+    print("\nPart (c) - Var[e1] 的貢獻者：")
     print("-" * 60)
-    print("變異數貢獻者:")
-    print("  1. 數據集的隨機性 (X, y)")
+    print("變異數貢獻者：")
+    print("  1. 數據集的隨機性（X, y）")
     print("  2. 留出點的隨機性")
-    print("  3. 目標函數的噪音 (ε)")
+    print("  3. 目標函數的噪音（ε）")
     print("  4. 正規化造成的假設空間變化")
-    print("\n觀察:")
-    print(f"  • Var[e1] 隨 N 增加而減少 (估計更穩定)")
-    print(f"  • 在 N={N_values[0]}: Var[e1] = {results_small[N_values[0]]['e1_var']:.6f}")
-    print(f"  • 在 N={N_values[-1]}: Var[e1] = {results_small[N_values[-1]]['e1_var']:.6f}")
+    print("\n觀察：")
+    print(f"  • Var[e1] 隨 N 增加而減少（估計更穩定）")
+    print(f"  • 在 N={N_values[0]}：Var[e1] = {results_small[N_values[0]]['e1_var']:.6f}")
+    print(f"  • 在 N={N_values[-1]}：Var[e1] = {results_small[N_values[-1]]['e1_var']:.6f}")
     
-    print("\nPart (d) - 如果獨立，Var[e_i] 與 Var[Ecv] 的關係:")
+    print("\nPart (d) - 如果獨立，Var[e_i] 與 Var[Ecv] 的關係：")
     print("-" * 60)
-    print("理論 (如果獨立):")
+    print("理論（如果獨立）：")
     print("  • Ecv = (1/N) Σ e_i")
-    print("  • 如果 e_i 獨立: Var[Ecv] = Var[e_i] / N")
-    print("  • 因此: N = Var[e_i] / Var[Ecv]")
-    print("\n然而，e_i 並非真正獨立，因為:")
+    print("  • 如果 e_i 獨立：Var[Ecv] = Var[e_i] / N")
+    print("  • 因此：N = Var[e_i] / Var[Ecv]")
+    print("\n然而，e_i 並非真正獨立，因為：")
     print("  • 它們共享 N-2 個共同的訓練點")
     print("  • 這創造了 CV 誤差之間的相關性")
     
-    print("\nPart (e) - 有效新樣本數 (N_eff):")
+    print("\nPart (e) - 有效新樣本數（N_eff）：")
     print("-" * 60)
-    print("定義:")
+    print("定義：")
     print("  • N_eff = Var[e_i] / Var[Ecv]")
-    print("  • 衡量有多少'有效獨立'的樣本對 Ecv 有貢獻")
-    print("\n結果 (λ = 0.05/N):")
+    print("  • 衡量有多少「有效獨立」的樣本對 Ecv 有貢獻")
+    print("\n結果（λ = 0.05/N）：")
     for i, N in enumerate([N_values[0], N_values[len(N_values)//2], N_values[-1]]):
         var_ratio = results_small[N]['e1_var'] / results_small[N]['Ecv_var']
         percentage = var_ratio / N * 100
-        print(f"  N = {N}: N_eff = {var_ratio:.2f}, N_eff/N = {percentage:.2f}%")
+        print(f"  N = {N}：N_eff = {var_ratio:.2f}, N_eff/N = {percentage:.2f}%")
     print("\n✓ N_eff 非常接近 N，顯示 CV 誤差幾乎獨立！")
     print("  這是因為每個 CV 誤差使用不同的驗證點。")
     
-    print("\nPart (f) - 增加正規化對 N_eff 的影響:")
+    print("\nPart (f) - 增加正規化對 N_eff 的影響：")
     print("-" * 60)
-    print("猜想:")
+    print("猜想：")
     print("  • 增加 λ → 更多正規化 → 更平滑的假設")
     print("  • 更平滑的假設 → 留出不同點時模型更相似")
     print("  • 更相似的模型 → e_i 之間相關性更高")
     print("  • 更高的相關性 → 更低的 N_eff")
-    print("\n驗證 (比較 λ = 0.05/N vs λ = 2.5/N):")
+    print("\n驗證（比較 λ = 0.05/N vs λ = 2.5/N）：")
     for N in [N_values[0], N_values[-1]]:
         var_ratio_small = results_small[N]['e1_var'] / results_small[N]['Ecv_var']
         pct_small = var_ratio_small / N * 100
         var_ratio_large = results_large[N]['e1_var'] / results_large[N]['Ecv_var']
         pct_large = var_ratio_large / N * 100
-        print(f"\n  N = {N}:")
-        print(f"    λ = 0.05/N: N_eff/N = {pct_small:.2f}%")
-        print(f"    λ = 2.5/N:  N_eff/N = {pct_large:.2f}%")
-        print(f"    變化: {pct_large - pct_small:+.2f} 百分點")
-    print("\n✓ 猜想部分證實: 更高的正規化在某些情況下降低 N_eff")
+        print(f"\n  N = {N}：")
+        print(f"    λ = 0.05/N：N_eff/N = {pct_small:.2f}%")
+        print(f"    λ = 2.5/N：N_eff/N = {pct_large:.2f}%")
+        print(f"    變化：{pct_large - pct_small:+.2f} 百分點")
+    print("\n✓ 猜想部分證實：更高的正規化在某些情況下降低 N_eff")
     
     print("\n" + "="*60)
     print("所有圖表已成功保存！")
